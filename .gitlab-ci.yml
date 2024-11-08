@@ -45,7 +45,7 @@ deploy:
     - rsync -avz --delete "$DIST_PATH/" "$SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH"
     
     # Deploy PM2 config if needed
-    - rsync -avz ecosystem.config.mjs "$SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH/"
+    - rsync -avz ecosystem.config.cjs "$SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH/"
     
     # Restart PM2 process
     - ssh "$SERVER_USERNAME@$SERVER_IP" "cd $DEPLOY_PATH && pm2 restart $PM2_PROCESS_NAME || pm2 start ecosystem.config.cjs --name $PM2_PROCESS_NAME"
