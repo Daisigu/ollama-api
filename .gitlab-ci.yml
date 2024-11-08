@@ -8,17 +8,15 @@ variables:
   DIST_PATH: "dist"
   DEPLOY_PATH: "/var/www/ollama-api"
   SERVER_IP: "188.243.28.22"       # Replace with your server IP
-  SERVER_USERNAME: "bogd"   # Replace with your SSH user
+  SERVER_USERNAME: "bogd"          # Replace with your SSH user
   PM2_PROCESS_NAME: "ollama-api"
 
 before_script:
-  - apt-get update && apt-get install -y rsync openssh-client  
+  - apt-get update && apt-get install -y rsync openssh-client
   - mkdir -p ~/.ssh
   - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
   - chmod 600 ~/.ssh/id_rsa
   - ssh-keyscan -H "$SERVER_IP" >> ~/.ssh/known_hosts
-  
-
 
 build:
   stage: build
@@ -32,20 +30,26 @@ build:
 deploy:
   stage: deploy
   only:
-    - main  # Change to your branch name if needed
+    - main  # Deploy only on the main branch
   script:
     # Add server to known_hosts to avoid SSH verification issues
     - mkdir -p ~/.ssh
     - ssh-keyscan -H "$SERVER_IP" >> ~/.ssh/known_hosts
     
-    # Remove existing content on server
+    # Remove existing content on server (clean deploy path)
     - ssh "$SERVER_USERNAME@$SERVER_IP" "rm -rf $DEPLOY_PATH/*"
     
-    # Sync new content
+    # Ensure the deploy directory exists and set appropriate permissions
+    - ssh "$SERVER_USERNAME@$SERVER_IP" "mkdir -p $DEPLOY_PATH && chown -R $SERVER_USERNAME:$SERVER_USERNAME $DEPLOY_PATH"
+    
+    # Sync new content from local build to server
     - rsync -avz --delete "$DIST_PATH/" "$SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH"
     
     # Deploy PM2 config if needed
     - rsync -avz ecosystem.config.cjs "$SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH/"
     
-    # Restart PM2 process
+    # Install dependencies on the server
+    - ssh "$SERVER_USERNAME@$SERVER_IP" "cd $DEPLOY_PATH && npm install"
+    
+    # Restart PM2 process or start it if not already running
     - ssh "$SERVER_USERNAME@$SERVER_IP" "cd $DEPLOY_PATH && pm2 restart $PM2_PROCESS_NAME || pm2 start ecosystem.config.cjs --name $PM2_PROCESS_NAME"
