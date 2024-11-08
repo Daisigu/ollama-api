@@ -14,8 +14,8 @@ variables:
 before_script:
   - apt-get update && apt-get install -y rsync openssh-client  
   - mkdir -p ~/.ssh
-  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa.pub
-  - chmod 600 ~/.ssh/id_rsa.pub
+  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+  - chmod 600 ~/.ssh/id_rsa
   - ssh-keyscan -H "$SERVER_IP" >> ~/.ssh/known_hosts
   
 
