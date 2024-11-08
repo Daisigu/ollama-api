@@ -23,7 +23,7 @@ deploy:
   script:
     - ssh $SERVER_USERNAME@$SERVER_IP "mkdir -p $DEPLOY_PATH"  # Убедитесь, что директория существует
     - rsync -avz --delete . $SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH  # Копируем все файлы (не только dist)
-    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && npm install --production"  # Устанавливаем зависимости
+    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && npm install"  # Устанавливаем зависимости
     - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && npm run build"  # Собираем приложение (если у вас есть команда build)
     - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && pm2 start ecosystem.config.cjs --name $PM2_PROCESS_NAME"  # Запуск через PM2
   only:
