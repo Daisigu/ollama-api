@@ -16,7 +16,7 @@ app.post("/ollama", async (req: Request, res: Response): Promise<void> => {
 
   try {
     const response = await ollama.chat({
-      model: "llama3.2-vision",
+      model: "llama3.2-vision:11b",
       messages: [
         {
           role: "user",
