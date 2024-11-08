@@ -4,8 +4,15 @@ stages:
   - build
   - deploy
 
+variables:
+  DIST_PATH: "dist"
+  DEPLOY_PATH: "/var/www/ollama-api"
+  SERVER_IP: "188.243.28.22"       # Replace with your server IP
+  SERVER_USERNAME: "bogd"   # Replace with your SSH user
+  PM2_PROCESS_NAME: "ollama-api"
+
 before_script:
-  - apt-get update -qq && apt-get install -y -qq sshpass
+  - apk add --no-cache rsync openssh  # Ensure rsync and ssh are installed
 
 build:
   stage: build
@@ -14,16 +21,21 @@ build:
     - npm run build
   artifacts:
     paths:
-      - dist
+      - $DIST_PATH
 
 deploy:
   stage: deploy
   only:
     - main  # Change to your branch name if needed
   script:
-    - sshpass -e ssh -o StrictHostKeyChecking=no "$SSH_USERNAME@$SERVER_IP" "mkdir -p $DEPLOY_PATH"
-    - sshpass -e rsync -av --delete dist/ "$SSH_USERNAME@$SERVER_IP:$DEPLOY_PATH"
-    - sshpass -e ssh -o StrictHostKeyChecking=no "$SSH_USERNAME@$SERVER_IP" "
-        pm2 stop $PM2_PROCESS_NAME || true && \
-        pm2 start $DEPLOY_PATH/index.js --name $PM2_PROCESS_NAME
-      "
+    # Remove existing content on server
+    - ssh "$SERVER_USERNAME@$SERVER_IP" "rm -rf $DEPLOY_PATH/*"
+    
+    # Sync new content
+    - rsync -avz --delete "$DIST_PATH/" "$SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH"
+    
+    # Deploy PM2 config if needed
+    - rsync -avz ecosystem.config.mjs "$SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH/"
+    
+    # Restart PM2 process
+    - ssh "$SERVER_USERNAME@$SERVER_IP" "cd $DEPLOY_PATH && pm2 restart $PM2_PROCESS_NAME || pm2 start ecosystem.config.mjs --name $PM2_PROCESS_NAME"
