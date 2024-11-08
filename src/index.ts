@@ -20,8 +20,7 @@ app.post("/ollama", async (req: Request, res: Response): Promise<void> => {
       messages: [
         {
           role: "user",
-          content: "What is in this image?",
-          images: ["image.jpg"],
+          content: "Hello",
         },
       ],
     });
