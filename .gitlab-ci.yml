@@ -48,4 +48,4 @@ deploy:
     - rsync -avz ecosystem.config.mjs "$SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH/"
     
     # Restart PM2 process
-    - ssh "$SERVER_USERNAME@$SERVER_IP" "cd $DEPLOY_PATH && pm2 restart $PM2_PROCESS_NAME || pm2 start ecosystem.config.mjs --name $PM2_PROCESS_NAME"
+    - ssh "$SERVER_USERNAME@$SERVER_IP" "cd $DEPLOY_PATH && pm2 restart $PM2_PROCESS_NAME || pm2 start ecosystem.config.cjs --name $PM2_PROCESS_NAME"
