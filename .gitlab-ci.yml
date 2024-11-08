@@ -1,58 +1,29 @@
-image: node:20
-
 stages:
-  - build
   - deploy
 
 variables:
-  DIST_PATH: "dist"
-  DEPLOY_PATH: "/var/www/ollama-api"
-  SERVER_IP: "188.243.28.22"       # Replace with your server IP
-  SERVER_USERNAME: "bogd"          # Replace with your SSH user
-  PM2_PROCESS_NAME: "ollama-api"
+  DEPLOY_PATH: "/var/www/ollama-api"       # Путь для деплоя на сервере
+  SERVER_IP: "188.243.28.22"               # IP вашего сервера
+  SERVER_USERNAME: "bogd"                  # SSH-юзер для подключения
+  PM2_PROCESS_NAME: "ollama-api"           # Имя процесса в PM2
 
 before_script:
-  - apt-get update && apt-get install -y rsync openssh-client
+  - 'which ssh-agent || apt-get update -qy && apt-get install -y openssh-client'
+  - eval $(ssh-agent -s)
+  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
   - mkdir -p ~/.ssh
-  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
-  - chmod 600 ~/.ssh/id_rsa
-  - ssh-keyscan -H "$SERVER_IP" >> ~/.ssh/known_hosts
-
-build:
-  stage: build
-  script:
-    - npm install
-    - npm run build  # Ensure `npm run build` is defined in your package.json
-  artifacts:
-    paths:
-      - $DIST_PATH
+  - chmod 700 ~/.ssh
+  - ssh-keyscan $SERVER_IP >> ~/.ssh/known_hosts
+  - chmod 644 ~/.ssh/known_hosts
 
 deploy:
   stage: deploy
-  only:
-    - main  # Deploy only on the main branch
+  image: node:20
   script:
-    # Add server to known_hosts to avoid SSH verification issues
-    - mkdir -p ~/.ssh
-    - ssh-keyscan -H "$SERVER_IP" >> ~/.ssh/known_hosts
-    
-    # Remove existing content on server (clean deploy path)
-    - ssh "$SERVER_USERNAME@$SERVER_IP" "rm -rf $DEPLOY_PATH/*"
-    
-    # Ensure the deploy directory exists and set appropriate permissions
-    - ssh "$SERVER_USERNAME@$SERVER_IP" "mkdir -p $DEPLOY_PATH && chown -R $SERVER_USERNAME:$SERVER_USERNAME $DEPLOY_PATH"
-    
-    # Sync new content from local build to server
-    - rsync -avz --delete -e ssh "$DIST_PATH/" "$SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH"
-    
-    # Deploy PM2 config if needed
-    - rsync -avz ecosystem.config.cjs "$SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH/"
-    
-    # Install dependencies on the server
-    - ssh "$SERVER_USERNAME@$SERVER_IP" "cd $DEPLOY_PATH && npm install"
-    
-    # Install PM2 if not installed
-    - ssh "$SERVER_USERNAME@$SERVER_IP" "npm install pm2 -g"
-    
-    # Restart PM2 process or start it if not already running
-    - ssh "$SERVER_USERNAME@$SERVER_IP" "cd $DEPLOY_PATH && pm2 restart $PM2_PROCESS_NAME || pm2 start ecosystem.config.cjs --name $PM2_PROCESS_NAME"
+    - ssh $SERVER_USERNAME@$SERVER_IP "mkdir -p $DEPLOY_PATH"  # Убедитесь, что директория существует
+    - rsync -avz --delete . $SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH  # Копируем все файлы (не только dist)
+    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && npm install --production"  # Устанавливаем зависимости
+    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && npm run build"  # Собираем приложение (если у вас есть команда build)
+    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && pm2 start ecosystem.config.cjs --name $PM2_PROCESS_NAME"  # Запуск через PM2
+  only:
+    - main  # Выполняем деплой только с основной ветки
