@@ -15,6 +15,7 @@ before_script:
   - chmod 700 ~/.ssh
   - ssh-keyscan $SERVER_IP >> ~/.ssh/known_hosts
   - chmod 644 ~/.ssh/known_hosts
+  - apt-get update -qy && apt-get install -y rsync  # Установка rsync
 
 deploy:
   stage: deploy
