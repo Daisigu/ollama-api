@@ -12,7 +12,7 @@ variables:
   PM2_PROCESS_NAME: "ollama-api"
 
 before_script:
-  - apk add --no-cache rsync openssh  # Ensure rsync and ssh are installed
+  - apt-get update && apt-get install -y rsync openssh-client  # Use apt-get for Debian-based images
 
 build:
   stage: build
