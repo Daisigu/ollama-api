@@ -1,0 +1,29 @@
+image: node:20
+
+stages:
+  - build
+  - deploy
+
+before_script:
+  - apt-get update -qq && apt-get install -y -qq sshpass
+
+build:
+  stage: build
+  script:
+    - npm install
+    - npm run build
+  artifacts:
+    paths:
+      - dist
+
+deploy:
+  stage: deploy
+  only:
+    - main  # Change to your branch name if needed
+  script:
+    - sshpass -e ssh -o StrictHostKeyChecking=no "$SSH_USERNAME@$SERVER_IP" "mkdir -p $DEPLOY_PATH"
+    - sshpass -e rsync -av --delete dist/ "$SSH_USERNAME@$SERVER_IP:$DEPLOY_PATH"
+    - sshpass -e ssh -o StrictHostKeyChecking=no "$SSH_USERNAME@$SERVER_IP" "
+        pm2 stop $PM2_PROCESS_NAME || true && \
+        pm2 start $DEPLOY_PATH/index.js --name $PM2_PROCESS_NAME
+      "
