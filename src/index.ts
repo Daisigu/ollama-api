@@ -9,10 +9,10 @@ app.use(express.json());
 app.post("/ollama", async (req: Request, res: Response): Promise<void> => {
   const { prompt } = req.body;
   
-  if (!prompt) {
+  /* if (!prompt) {
     res.status(400).json({ error: "Prompt is required", body: req.body });
     return;
-  }
+  } */
 
   try {
     const response = await ollama.chat({
