@@ -22,7 +22,7 @@ build:
   stage: build
   script:
     - npm install
-    - npm run build
+    - npm run build  # Ensure `npm run build` is defined in your package.json
   artifacts:
     paths:
       - $DIST_PATH
@@ -43,13 +43,16 @@ deploy:
     - ssh "$SERVER_USERNAME@$SERVER_IP" "mkdir -p $DEPLOY_PATH && chown -R $SERVER_USERNAME:$SERVER_USERNAME $DEPLOY_PATH"
     
     # Sync new content from local build to server
-    - rsync -avz --delete "$DIST_PATH/" "$SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH"
+    - rsync -avz --delete -e ssh "$DIST_PATH/" "$SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH"
     
     # Deploy PM2 config if needed
     - rsync -avz ecosystem.config.cjs "$SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH/"
     
     # Install dependencies on the server
     - ssh "$SERVER_USERNAME@$SERVER_IP" "cd $DEPLOY_PATH && npm install"
+    
+    # Install PM2 if not installed
+    - ssh "$SERVER_USERNAME@$SERVER_IP" "npm install pm2 -g"
     
     # Restart PM2 process or start it if not already running
     - ssh "$SERVER_USERNAME@$SERVER_IP" "cd $DEPLOY_PATH && pm2 restart $PM2_PROCESS_NAME || pm2 start ecosystem.config.cjs --name $PM2_PROCESS_NAME"
