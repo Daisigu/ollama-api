@@ -12,7 +12,13 @@ variables:
   PM2_PROCESS_NAME: "ollama-api"
 
 before_script:
-  - apt-get update && apt-get install -y rsync openssh-client  # Use apt-get for Debian-based images
+  - apt-get update && apt-get install -y rsync openssh-client  
+  - mkdir -p ~/.ssh
+  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa.pub
+  - chmod 600 ~/.ssh/id_rsa.pub
+  - ssh-keyscan -H "$SERVER_IP" >> ~/.ssh/known_hosts
+  
+
 
 build:
   stage: build
