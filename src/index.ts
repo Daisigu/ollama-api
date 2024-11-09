@@ -25,7 +25,7 @@ app.post("/ollama", async (req: Request, res: Response): Promise<void> => {
       ],
     });
 
-    res.json({ response: response});
+    res.json(response);
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({ error: "Something went wrong with Ollama" });
