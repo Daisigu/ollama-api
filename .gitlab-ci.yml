@@ -1,12 +1,6 @@
 stages:
   - deploy
 
-variables:
-  DEPLOY_PATH: "/var/www/ollama-api"       # Путь для деплоя на сервере
-  SERVER_IP: "188.243.28.22"               # IP вашего сервера
-  SERVER_USERNAME: "bogd"                  # SSH-юзер для подключения
-  PM2_PROCESS_NAME: "ollama-api"           # Имя процесса в PM2
-
 before_script:
   - 'which ssh-agent || apt-get update -qy && apt-get install -y openssh-client'
   - eval $(ssh-agent -s)
@@ -15,16 +9,16 @@ before_script:
   - chmod 700 ~/.ssh
   - ssh-keyscan $SERVER_IP >> ~/.ssh/known_hosts
   - chmod 644 ~/.ssh/known_hosts
-  - apt-get update -qy && apt-get install -y rsync  # Установка rsync
+  - apt-get update -qy && apt-get install -y rsync  
 
 deploy:
   stage: deploy
   image: node:20
   script:
-    - ssh $SERVER_USERNAME@$SERVER_IP "mkdir -p $DEPLOY_PATH"  # Убедитесь, что директория существует
-    - rsync -avz --delete . $SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH  # Копируем все файлы (не только dist)
-    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && npm install"  # Устанавливаем зависимости
-    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && npm run build"  # Собираем приложение (если у вас есть команда build)
-    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && pm2 start ecosystem.config.cjs --name $PM2_PROCESS_NAME"  # Запуск через PM2
+    - ssh $SERVER_USERNAME@$SERVER_IP "mkdir -p $DEPLOY_PATH"
+    - rsync -avz --delete . $SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH 
+    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && npm install"  
+    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && npm run build"  
+    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && pm2 start ecosystem.config.cjs --name $PM2_PROCESS_NAME" 
   only:
-    - main  # Выполняем деплой только с основной ветки
+    - main 
