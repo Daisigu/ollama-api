@@ -1,70 +1,94 @@
+image: node:20-alpine
+
 stages:
-  - test
+  - validate
   - build
   - deploy
 
 variables:
   NODE_ENV: production
 
+.ssh-config: &ssh-config
+  before_script:
+    - apk add --no-cache openssh-client rsync
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$SERVER_IP $(ssh-keyscan $SERVER_IP 2>/dev/null)" >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+
 cache:
+  key: ${CI_COMMIT_REF_SLUG}
   paths:
     - node_modules/
 
-test:
-  stage: test
-  image: node:20
+lint:
+  stage: validate
   script:
     - npm ci
     - npm run lint
   except:
     - main
+  cache:
+    policy: pull
+
+typecheck:
+  stage: validate
+  script:
+    - npm ci
+    - npx tsc --noEmit
+  except:
+    - main
+  cache:
+    policy: pull
 
 build:
   stage: build
-  image: node:20
   script:
     - npm ci
-    - npm i -g typescript
     - npm run build
+    # Создаем .env файл для production
+    - |
+      cat > .env << EOF
+      PORT=${PORT}
+      API_TOKEN=${API_TOKEN}
+      OLLAMA_MODEL=${OLLAMA_MODEL}
+      NODE_ENV=production
+      EOF
   artifacts:
     paths:
-      - dist
+      - dist/
+      - node_modules/
+      - package.json
+      - package-lock.json
       - ecosystem.config.js
-      - package*.json
-      - .env.production # Добавим файл с переменными окружения для продакшена
+      - .env
     expire_in: 1 hour
   only:
     - main
 
 deploy:
   stage: deploy
-  image: node:20
-  before_script:
-    - 'which ssh-agent || apt-get update -qy && apt-get install -y openssh-client'
-    - eval $(ssh-agent -s)
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - ssh-keyscan $SERVER_IP >> ~/.ssh/known_hosts
-    - chmod 644 ~/.ssh/known_hosts
-    - apt-get update -qy && apt-get install -y rsync
+  image: node:20-alpine
+  <<: *ssh-config
   script:
-    # Создаём файл с переменными окружения из CI/CD variables
-    - |
-      cat > .env.production << EOL
-      PORT=${PORT}
-      API_TOKEN=${API_TOKEN}
-      OLLAMA_MODEL=${OLLAMA_MODEL}
-      NODE_ENV=production
-      EOL
+    # Создаем директорию если не существует
     - ssh $SERVER_USERNAME@$SERVER_IP "mkdir -p $DEPLOY_PATH"
-    # Копируем файлы на сервер
-    - rsync -avz --delete dist package*.json ecosystem.config.js .env.production $SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH
-    # Переименовываем .env.production в .env на сервере
-    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && mv .env.production .env"
+    
+    # Синхронизируем файлы
+    - rsync -az --delete ./dist/ $SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH/dist/
+    - rsync -az package*.json ecosystem.config.js .env $SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH/
+    
     # Устанавливаем зависимости и перезапускаем приложение
-    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && npm ci --production"
-    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js"
+    - |
+      ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && \
+      npm ci --production && \
+      if pm2 list | grep -q 'ollama-api'; then \
+        pm2 reload ecosystem.config.js; \
+      else \
+        pm2 start ecosystem.config.js; \
+      fi"
   only:
     - main
   dependencies:
