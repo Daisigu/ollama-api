@@ -24,6 +24,7 @@ build:
   image: node:20
   script:
     - npm ci
+    - npm i -g typescript
     - npm run build
   artifacts:
     paths:
