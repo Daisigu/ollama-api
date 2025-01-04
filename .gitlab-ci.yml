@@ -32,7 +32,7 @@ deploy:
   script:
     - ssh $SERVER_USERNAME@$SERVER_IP "mkdir -p $DEPLOY_PATH"
     
-    - rsync -avz --delete dist/ $SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH
+    - rsync -avz --delete dist $SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH
     - rsync -avz --delete ecosystem.config.cjs $SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH
     
     - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && pm2 start ecosystem.config.cjs --name $PM2_PROCESS_NAME"
