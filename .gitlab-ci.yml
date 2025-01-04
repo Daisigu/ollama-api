@@ -16,6 +16,7 @@ build:
   stage: build
   image: node:20
   script:
+    - npm i
     - npm install -g typescript
     - npm run build 
 
