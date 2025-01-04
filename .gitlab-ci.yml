@@ -1,42 +1,69 @@
 stages:
+  - test
   - build
   - deploy
 
-before_script:
-  - 'which ssh-agent || apt-get update -qy && apt-get install -y openssh-client'
-  - eval $(ssh-agent -s)
-  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-  - mkdir -p ~/.ssh
-  - chmod 700 ~/.ssh
-  - ssh-keyscan $SERVER_IP >> ~/.ssh/known_hosts
-  - chmod 644 ~/.ssh/known_hosts
-  - apt-get update -qy && apt-get install -y rsync
+variables:
+  NODE_ENV: production
+
+cache:
+  paths:
+    - node_modules/
+
+test:
+  stage: test
+  image: node:20
+  script:
+    - npm ci
+    - npm run lint
+  except:
+    - main
 
 build:
   stage: build
   image: node:20
   script:
-    - npm i
-    - npm install -g typescript
-    - npm run build 
-
+    - npm ci
+    - npm run build
   artifacts:
     paths:
       - dist
-      - ecosystem.config.cjs
+      - ecosystem.config.js
+      - package*.json
+      - .env.production # Добавим файл с переменными окружения для продакшена
     expire_in: 1 hour
+  only:
+    - main
 
 deploy:
   stage: deploy
   image: node:20
+  before_script:
+    - 'which ssh-agent || apt-get update -qy && apt-get install -y openssh-client'
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan $SERVER_IP >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+    - apt-get update -qy && apt-get install -y rsync
   script:
+    # Создаём файл с переменными окружения из CI/CD variables
+    - |
+      cat > .env.production << EOL
+      PORT=${PORT}
+      API_TOKEN=${API_TOKEN}
+      OLLAMA_MODEL=${OLLAMA_MODEL}
+      NODE_ENV=production
+      EOL
     - ssh $SERVER_USERNAME@$SERVER_IP "mkdir -p $DEPLOY_PATH"
-    
-    - rsync -avz --delete dist $SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH
-    - rsync -avz --delete ecosystem.config.cjs $SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH
-    
-    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && pm2 start ecosystem.config.cjs --name $PM2_PROCESS_NAME"
-
+    # Копируем файлы на сервер
+    - rsync -avz --delete dist package*.json ecosystem.config.js .env.production $SERVER_USERNAME@$SERVER_IP:$DEPLOY_PATH
+    # Переименовываем .env.production в .env на сервере
+    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && mv .env.production .env"
+    # Устанавливаем зависимости и перезапускаем приложение
+    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && npm ci --production"
+    - ssh $SERVER_USERNAME@$SERVER_IP "cd $DEPLOY_PATH && pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js"
   only:
     - main
   dependencies:
