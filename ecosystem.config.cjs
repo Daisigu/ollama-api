@@ -1,17 +1,14 @@
-module.exports = {
-  apps: [
-    {
-      name: "ollama-api",  
-      script: "dist/index.js",  
-      watch: true,  
-      autorestart: true,  
+export default {
+  apps: [{
+      name: 'ollama-api',
+      script: './dist/app.js',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '1G',
       env: {
-        NODE_ENV: "production", 
-      },
-      instances: 1,  
-      exec_mode: "fork", 
-      max_restarts: 5,  
-      restart_delay: 5000, 
-    },
-  ],
+          NODE_ENV: 'production',
+          PORT: 3001
+      }
+  }]
 };
