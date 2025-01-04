@@ -47,6 +47,7 @@ build:
   stage: build
   script:
     - npm ci
+    - npm i -g typescript
     - npm run build
     # Создаем .env файл для production
     - |
