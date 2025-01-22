@@ -20,7 +20,6 @@ const validateToken = (req: Request, res: Response, next: Function): void => {
   next();
 };
 
-// Защищенный маршрут
 app.post("/ollama", validateToken, async (req: Request, res: Response): Promise<void> => {
   const { prompt } = req.body;
 
